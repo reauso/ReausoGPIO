@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "reausoconfig-git": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-git", "--repository", "z:\\develop\\Projects\\Reauso\\ReausoConfig"]
+    }
+  }
+}
