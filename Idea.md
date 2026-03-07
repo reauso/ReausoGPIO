@@ -58,7 +58,7 @@ The foundational layer that everything else builds on. Implementation order: Pin
 
 ### Pins
 
-The most fundamental building block. A pin represents a physical pin on a board. All pin types are modeled — not just GPIO pins, but also power, ground, and other pins — to accurately represent real-world circuits.
+The most fundamental building block. A pin describes the electrical characteristics of a physical pin — its type, capabilities, and properties. Pins have no numeric identifier; all identification and numbering is handled by the board. All pin types are modeled — not just GPIO pins, but also power, ground, and other pins — to accurately represent real-world circuits.
 
 #### Pin Hierarchy
 
@@ -83,19 +83,29 @@ The hierarchy is extensible — users can subclass the abstract bases to create 
 
 #### Capabilities and Mode
 
-Each configurable pin has a set of **capabilities** describing what the hardware supports, and a **mode** selected by the user during the blueprint phase. The mode must be one of the pin's capabilities and is validated at build time.
+A single class hierarchy (`PinMode`) serves dual purpose:
+
+- **As a type** in a pin's `capabilities` — describes what the pin CAN do (e.g. digital input, PWM, I2C SDA).
+- **As an instance** in a pin's `mode` — describes the current configuration with typed fields.
+
+`PinMode` is an abstract frozen dataclass base. Each concrete subclass (e.g. `DigitalInput`, `PWM`) is both a capability (used as a type in `frozenset[type[PinMode]]`) and a mode (used as an instance). Subclasses with configuration options define typed fields; those without are empty.
+
+Setting a mode on a pin implicitly selects the active capability — the active capability is derived from the mode's type (`type(self.mode)`), so there is no separate "active capability" field.
 
 Capabilities are role-specific — for example, I2C distinguishes between SDA and SCL roles because they serve different functions. The same applies to SPI (MOSI, MISO, CLK, CS) and UART (TX, RX).
 
 **Standard capabilities** provided by the library:
-- Digital input, digital output
+- Digital input (with pull state: pull-up, pull-down, floating)
+- Digital output (with drive type: push-pull, open-drain)
 - PWM
 - Analog input, analog output
 - I2C SDA, I2C SCL
 - SPI MOSI, SPI MISO, SPI CLK, SPI CS
 - UART TX, UART RX
 
-**Capabilities are extensible** — users can define their own custom capabilities for protocols or hardware not anticipated by the library. Custom capabilities integrate seamlessly with configurable pins and the build process, just like the standard ones.
+**Capabilities are extensible** — users can define their own by subclassing `PinMode`. Custom capabilities integrate seamlessly with configurable pins and the build process, just like the standard ones.
+
+A convenience `Capability` namespace class provides IDE autocomplete for all standard capabilities (e.g. `Capability.DIGITAL_INPUT`, `Capability.PWM`).
 
 ### GPIO Interface (Adapter)
 
@@ -124,6 +134,17 @@ A board defines the physical pin layout of a microcontroller or single-board com
 This separation is important because the same board can use different GPIO libraries (RPi 4 with RPi.GPIO vs pigpio), and the same adapter can serve different board models.
 
 The library ships common board definitions in separate platform packages. Users can also define their own boards for custom hardware.
+
+#### Pin Addressing Schemes
+
+Pins have no intrinsic numeric identifier. All identification and numbering is a board-level concern. The board maps positions to pins (e.g. position 1 → PowerPin(3.3V), position 3 → GpioPin(...)).
+
+Boards support multiple named **addressing schemes** because the same physical pin can be identified differently depending on context. For example, on a Raspberry Pi, one pin might be physical position 3, BCM GPIO2, and WiringPi pin 8 — all referring to the same pin.
+
+- The board defines addressing schemes as named mappings from identifiers to pins
+- Users can look up pins by any registered scheme
+- Custom addressing schemes can be registered on any board
+- Addressing schemes are extensible — users can add their own for custom naming conventions
 
 ## Package Ecosystem
 
